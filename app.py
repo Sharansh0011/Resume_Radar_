@@ -47,10 +47,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Create tables on startup (needed for gunicorn/Render deployment)
-with app.app_context():
-    db.create_all()
-
 @app.template_filter('fromjson')
 def fromjson_filter(value):
     if not value:
@@ -153,6 +149,10 @@ class UserSettings(db.Model):
     weight_education = db.Column(db.Float, default=20)
 
 # ======================= AUTH ROUTES =======================
+
+# Create tables on startup (needed for gunicorn/Render deployment)
+with app.app_context():
+    db.create_all()
 
 @login_manager.user_loader
 def load_user(user_id):
