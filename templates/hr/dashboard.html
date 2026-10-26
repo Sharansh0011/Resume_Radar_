@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}HR Dashboard - Resume Radar{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block styles %}
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; margin-bottom: 35px; }
+.stat-card { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px var(--shadow); text-align: center; transition: background 0.3s; }
+.stat-card h3 { font-size: 38px; color: var(--accent); }
+.stat-card p { color: #666; font-size: 16px; margin-top: 8px; }
+[data-theme="dark"] .stat-card p { color: #aaa; }
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+.chart-card { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px var(--shadow); transition: background 0.3s; }
+.chart-card h3 { color: var(--nav-bg); margin-bottom: 15px; font-size: 18px; transition: color 0.3s; }
+[data-theme="dark"] .chart-card h3 { color: var(--accent); }
+@media (max-width: 768px) {
+    .chart-row { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+}
+{% endblock %}
+
+{% block nav_subtitle %} | HR Panel{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('hr_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('view_candidate') }}">Candidates</a>
+<a href="{{ url_for('settings') }}">Settings</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="stats">
+        <div class="stat-card">
+            <h3>{{ total_candidates }}</h3>
+            <p>Candidates</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ total_jobs }}</h3>
+            <p>Jobs Posted</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ total_interviews }}</h3>
+            <p>Interviews</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ avg_score }}</h3>
+            <p>Avg Score</p>
+        </div>
+    </div>
+
+    <div class="chart-row">
+        <div class="chart-card">
+            <h3>📊 Score Distribution</h3>
+            <canvas id="scoreChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>📈 Job-wise Interview Stats</h3>
+            <canvas id="jobChart"></canvas>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Jobs</h2>
+        <a href="{{ url_for('create_job') }}" class="btn btn-sm" style="margin-bottom: 18px; display: inline-block;">+ Create New Job</a>
+        <table>
+            <tr><th>Title</th><th>Required Skills</th><th>Min Exp</th><th>Created</th><th>Action</th></tr>
+            {% for job in jobs %}
+            <tr>
+                <td>{{ job.title }}</td>
+                <td>{{ job.required_skills or 'N/A' }}</td>
+                <td>{{ job.min_experience }} yrs</td>
+                <td>{{ job.created_at.strftime('%Y-%m-%d') if job.created_at else 'N/A' }}</td>
+                <td>
+                    <form action="{{ url_for('delete_job', job_id=job.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete job &quot;{{ job.title }}&quot; and all its interviews?')">
+                        <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>🎤 Assign Interview</h2>
+        <form action="{{ url_for('create_interview') }}" method="POST" class="form-inline">
+            <select name="candidate_id" required>
+                <option value="">Select Candidate</option>
+                {% for c in candidates %}
+                <option value="{{ c.id }}">{{ c.full_name }} ({{ c.email }})</option>
+                {% endfor %}
+            </select>
+            <select name="job_id" required>
+                <option value="">Select Job</option>
+                {% for j in jobs %}
+                <option value="{{ j.id }}">{{ j.title }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" name="duration" value="30" min="10" max="120" placeholder="Duration (min)">
+            <button type="submit" class="btn btn-sm">Assign Interview</button>
+        </form>
+    </div>
+
+    <div class="section">
+        <h2>📊 Interviews</h2>
+        <div class="search-box">
+            <input type="text" id="interviewSearch" placeholder="🔍 Search interviews...">
+        </div>
+        <table id="interviewsTable">
+            <tr><th>Title</th><th>Candidate</th><th>Status</th><th>Score</th><th>Actions</th></tr>
+            {% for interview in interviews %}
+            <tr>
+                <td>{{ interview.title }}</td>
+                <td>{{ interview.candidate.full_name if interview.candidate else 'N/A' }}</td>
+                <td><span class="badge badge-{{ interview.status }}">{{ interview.status }}</span></td>
+                <td>{{ "%.1f"|format(interview.total_score) }} / {{ "%.1f"|format(interview.max_possible_score) }}</td>
+                <td>
+                    {% if interview.status == 'completed' %}
+                    <a href="{{ url_for('view_interview', interview_id=interview.id) }}" class="btn btn-sm btn-secondary">View</a>
+                    <a href="{{ url_for('download_report', interview_id=interview.id) }}" class="btn btn-sm">Report</a>
+                    {% endif %}
+                    <form action="{{ url_for('delete_interview', interview_id=interview.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this interview?')">
+                        <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    const textColor = isDark ? '#e0e0e0' : '#333';
+
+    const scoreCtx = document.getElementById('scoreChart').getContext('2d');
+    new Chart(scoreCtx, {
+        type: 'bar',
+        data: {
+            labels: ['0-20%', '21-40%', '41-60%', '61-80%', '81-100%'],
+            datasets: [{
+                label: 'Interviews',
+                data: [
+                    {{ score_distribution['0-20'] }},
+                    {{ score_distribution['21-40'] }},
+                    {{ score_distribution['41-60'] }},
+                    {{ score_distribution['61-80'] }},
+                    {{ score_distribution['81-100'] }}
+                ],
+                backgroundColor: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#e94560'],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } },
+                x: { ticks: { color: textColor }, grid: { color: gridColor } }
+            }
+        }
+    });
+
+    const jobCtx = document.getElementById('jobChart').getContext('2d');
+    new Chart(jobCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ job_stats|map(attribute='title')|list|tojson }},
+            datasets: [{
+                data: {{ job_stats|map(attribute='count')|list|tojson }},
+                backgroundColor: ['#e94560', '#4d96ff', '#6bcb77', '#ffd93d', '#ff6b6b', '#a855f7'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: textColor } }
+            }
+        }
+    });
+</script>
+<script>initTableSearch('#interviewSearch', '#interviewsTable');</script>
+{% endblock %}

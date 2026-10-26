@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Resume Radar{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+    <script>
+      (function() {
+        const saved = localStorage.getItem('rr_theme');
+        if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        else if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        else {
+          fetch('/api/theme').then(r => r.json()).then(d => {
+            if (d.dark_mode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('rr_theme', 'dark'); }
+            else { document.documentElement.setAttribute('data-theme', 'light'); localStorage.setItem('rr_theme', 'light'); }
+          }).catch(() => {});
+        }
+      })();
+    </script>
+    <style>{% block styles %}{% endblock %}</style>
+</head>
+<body>
+    {% block navbar %}
+    <nav class="navbar">
+        <a href="/" class="logo">🎯 Resume Radar{% block nav_subtitle %}{% endblock %}</a>
+        <button class="hamburger" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links">
+            {% block nav_links %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+            {% endblock %}
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">🌙</button>
+        </div>
+    </nav>
+    {% endblock %}
+
+    <div class="main-content">
+        {% block flash_messages %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container" style="margin-bottom: 0; padding-top: 20px;">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+        {% endblock %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer">
+        <p>© 2026 Resume Radar — AI-Powered Recruitment Platform | 
+            <a href="/">Home</a>
+        </p>
+    </footer>
+
+    <div id="toastContainer"></div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Practice Results - Resume Radar{% endblock %}
+
+{% block styles %}
+.container { max-width: 800px; }
+h1 { color: var(--nav-bg); margin-bottom: 20px; transition: color 0.3s; }
+[data-theme="dark"] h1 { color: var(--accent); }
+.score-box { background: var(--score-box-bg); color: white; padding: 25px; border-radius: 10px; text-align: center; margin-bottom: 25px; transition: background 0.3s; }
+.score-box h2 { font-size: 42px; margin: 10px 0; color: white; }
+.question-card { background: var(--card-bg); padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 20px; transition: background 0.3s; }
+.question-card h3 { color: var(--nav-bg); margin-bottom: 10px; transition: color 0.3s; }
+[data-theme="dark"] .question-card h3 { color: var(--accent); }
+.feedback-box { background: var(--feedback-bg); padding: 10px; border-radius: 6px; margin-top: 10px; color: var(--text); transition: background 0.3s, color 0.3s; }
+.btn-secondary { margin-top: 15px; }
+{% endblock %}
+
+{% block nav_subtitle %} | Candidate Panel{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('candidate_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('practice_select') }}">Practice</a>
+<a href="{{ url_for('settings') }}">Settings</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>📝 Practice Results</h1>
+
+    {% if session %}
+    <div class="score-box">
+        <p>Practice Score</p>
+        <h2>{{ "%.1f"|format(session.total_score) }} / {{ "%.1f"|format(session.max_score) }}</h2>
+        <p>{{ session.created_at.strftime('%Y-%m-%d %H:%M') if session.created_at else '' }}</p>
+    </div>
+
+    {% set responses = session.responses|fromjson if session.responses else [] %}
+    {% set questions = session.questions|fromjson if session.questions else [] %}
+
+    {% for resp in responses %}
+    <div class="question-card">
+        <h3>Q{{ loop.index }}: {{ resp.question }}</h3>
+        <p><strong>Your Answer:</strong> {{ resp.answer or "No answer" }}</p>
+        <p style="color: var(--accent); font-weight: bold;">Score: {{ resp.score }} / {{ resp.max_score }}</p>
+        {% if resp.feedback %}
+        <p class="feedback-box">
+            <strong>💡 Feedback:</strong> {{ resp.feedback }}
+        </p>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p>No practice session found.</p>
+    {% endif %}
+
+    <div style="text-align: center; margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('practice_select') }}" class="btn">🎯 Practice Again</a>
+        <a href="{{ url_for('candidate_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

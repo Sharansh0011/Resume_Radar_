@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Interview Results - Resume Radar{% endblock %}
+
+{% block styles %}
+.container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+.score-box { background: var(--score-box-bg); color: white; padding: 25px; border-radius: 10px; text-align: center; margin-bottom: 25px; transition: background 0.3s; }
+.score-box h2 { font-size: 42px; margin: 10px 0; }
+.question-card { background: var(--card-bg); padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 20px; transition: background 0.3s; }
+.question-card h3 { color: var(--nav-bg); margin-bottom: 10px; transition: color 0.3s; }
+[data-theme="dark"] .question-card h3 { color: var(--accent); }
+.answer { background: var(--answer-bg); padding: 12px; border-radius: 6px; margin: 10px 0; color: var(--text); transition: background 0.3s, color 0.3s; }
+.score { color: var(--accent); font-weight: bold; font-size: 16px; }
+.feedback { background: var(--feedback-bg); padding: 10px; border-radius: 6px; margin-top: 10px; color: var(--text); transition: background 0.3s, color 0.3s; }
+.cheat-alert { background: var(--badge-pending-bg); color: var(--badge-pending-text); padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; }
+.btn { margin-top: 15px; }
+@media (max-width: 768px) {
+    .container { padding: 0 15px; margin: 20px auto; }
+    .score-box h2 { font-size: 32px; }
+    .question-card { padding: 15px; }
+}
+{% endblock %}
+
+{% block nav_subtitle %} | HR Panel{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('hr_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('view_candidate') }}">Candidates</a>
+<a href="{{ url_for('settings') }}">Settings</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="score-box">
+        <p>Interview Score</p>
+        <h2>{{ "%.1f"|format(interview.total_score) }} / {{ "%.1f"|format(interview.max_possible_score) }}</h2>
+        <p>{{ interview.candidate.full_name if interview.candidate else 'Candidate' }} — {{ interview.title }}</p>
+    </div>
+
+    {% if interview.tab_switches or interview.copy_paste_attempts %}
+    <div class="cheat-alert">
+        ⚠️ Proctoring Alerts: Tab Switches: {{ interview.tab_switches or 0 }} | Copy/Paste Attempts: {{ interview.copy_paste_attempts or 0 }}
+    </div>
+    {% endif %}
+
+    {% for resp in responses %}
+    <div class="question-card">
+        <h3>Q{{ loop.index }}: {{ resp.question_text }}</h3>
+        <div class="answer">
+            <strong>Answer:</strong><br>{{ resp.answer_text or "No answer" }}
+        </div>
+        <div class="score">Score: {{ "%.1f"|format(resp.score) }} / {{ "%.1f"|format(resp.max_score) }}</div>
+        {% if resp.keywords_matched %}
+        <div style="margin-top: 8px; color: var(--text);">
+            <strong>Keywords:</strong> {{ resp.keywords_matched|fromjson|join(', ') }}
+        </div>
+        {% endif %}
+        {% if resp.feedback %}
+        <div class="feedback">
+            <strong>💡 Feedback:</strong> {{ resp.feedback }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <a href="{{ url_for('hr_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
+{% endblock %}

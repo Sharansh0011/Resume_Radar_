@@ -1,0 +1,93 @@
+AMIT KUMAR
+Full Stack Developer
+
+Email: amitkumar@gmail.com
+Phone: +91-9876543210
+Location: India
+LinkedIn: linkedin.com/in/amitkumar
+
+------------------------------------------------------------
+PROFESSIONAL SUMMARY
+------------------------------------------------------------
+Passionate Full Stack Developer with 2+ years of experience in building web applications using modern technologies. Proficient in Python, JavaScript, React, and cloud services. Strong problem-solving skills with experience in agile development methodologies.
+
+------------------------------------------------------------
+TECHNICAL SKILLS
+------------------------------------------------------------
+Programming Languages: Python, JavaScript, TypeScript, Java, C++, SQL
+Frontend: React, HTML5, CSS3, Bootstrap, Tailwind, jQuery, AJAX
+Backend: Flask, Django, Node.js, Express, REST API
+Databases: MySQL, PostgreSQL, MongoDB, SQLite, Firebase, Redis
+Cloud & DevOps: AWS, Docker, Git, GitHub, Jenkins, Kubernetes
+AI/ML: Machine Learning, TensorFlow, Pandas, NumPy, Scikit-learn
+Tools: Postman, Jira, VS Code, Figma, Selenium
+
+------------------------------------------------------------
+SOFT SKILLS
+------------------------------------------------------------
+Communication, Leadership, Teamwork, Problem Solving, Time Management, Agile, Scrum, Project Management, Adaptability, Critical Thinking
+
+------------------------------------------------------------
+EDUCATION
+------------------------------------------------------------
+B.Tech in Computer Science Engineering
+XYZ University, 2022 - 2026
+CGPA: 8.5/10
+
+Higher Secondary (12th) - PCM
+ABC School, 2022
+Percentage: 85%
+
+------------------------------------------------------------
+WORK EXPERIENCE
+------------------------------------------------------------
+Full Stack Developer Intern | TechCorp Solutions | Jan 2025 - Jun 2025
+- Developed and deployed 3 web applications using Flask and React
+- Implemented RESTful APIs serving 10,000+ daily requests
+- Optimized database queries reducing response time by 40%
+- Collaborated with a team of 5 developers using Agile/Scrum methodology
+- Deployed applications on AWS EC2 with Docker containers
+
+Frontend Developer Intern | WebStudio | Jun 2024 - Dec 2024
+- Built responsive web interfaces using React and Tailwind CSS
+- Integrated third-party APIs for payment processing and authentication
+- Implemented JWT-based authentication system
+- Improved page load speed by 60% through code optimization
+- Conducted unit testing using Jest and Selenium
+
+------------------------------------------------------------
+PROJECTS
+------------------------------------------------------------
+1. Resume Radar - AI Interview Platform
+   Tech Stack: Python, Flask, SQLAlchemy, Google Gemini AI, HTML/CSS/JS
+   - Built an AI-powered resume screening and interview management system
+   - Implemented AI-based skill extraction, question generation, and answer scoring
+   - Features: Resume parsing, job matching, timed interviews, anti-cheat, PDF reports
+
+2. E-Commerce Dashboard
+   Tech Stack: React, Node.js, Express, MongoDB, Redis
+   - Full-stack e-commerce admin panel with real-time analytics
+   - Implemented caching with Redis reducing load time by 50%
+   - RESTful API with JWT authentication and role-based access
+
+3. ML Stock Predictor
+   Tech Stack: Python, TensorFlow, Pandas, NumPy, Scikit-learn
+   - Built machine learning model to predict stock prices
+   - Used LSTM neural network with 85% accuracy
+   - Visualized trends using Matplotlib and Seaborn
+
+------------------------------------------------------------
+CERTIFICATIONS
+------------------------------------------------------------
+- AWS Cloud Practitioner Certified
+- Google IT Automation with Python (Coursera)
+- Full Stack Web Development (Udemy)
+- Machine Learning Specialization (Coursera)
+
+------------------------------------------------------------
+ACHIEVEMENTS
+------------------------------------------------------------
+- Winner - National Level Hackathon 2025
+- Top 5% in HackerRank Python Challenge
+- Published technical blog with 5,000+ readers
+- Open source contributor on GitHub with 200+ contributions

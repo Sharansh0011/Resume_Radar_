@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Resume Radar{% endblock %}
+
+{% block styles %}
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+.main-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    width: 100%;
+}
+.card {
+    max-width: 450px;
+}
+.card h2 {
+    text-align: center;
+    margin-bottom: 25px;
+}
+button {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.3s;
+}
+button:hover {
+    background: var(--accent-hover);
+}
+.footer {
+    width: 100%;
+}
+{% endblock %}
+
+{% block navbar %}{% endblock %}
+
+{% block flash_messages %}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📝 Register</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="POST">
+        <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" name="full_name" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" required placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <div class="password-wrapper">
+                <input type="password" name="password" id="regPassword" required placeholder="••••••••">
+                <button type="button" class="password-toggle" onclick="togglePassword('regPassword')">👁️</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Confirm Password</label>
+            <div class="password-wrapper">
+                <input type="password" name="confirm_password" id="regConfirmPassword" required placeholder="••••••••">
+                <button type="button" class="password-toggle" onclick="togglePassword('regConfirmPassword')">👁️</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Role</label>
+            <select name="role" required>
+                <option value="">Select Role</option>
+                <option value="hr">HR / Recruiter</option>
+                <option value="candidate">Candidate</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="text" name="phone" placeholder="+91 98765 43210">
+        </div>
+        <div class="form-group" id="companyField" style="display:none;">
+            <label>Company Name (if HR)</label>
+            <input type="text" name="company_name" placeholder="Acme Inc.">
+        </div>
+        <button type="submit">Create Account</button>
+    </form>
+    <div class="link">
+        Already have an account? <a href="{{ url_for('login') }}">Login</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const roleSelect = document.querySelector('select[name="role"]');
+    const companyField = document.getElementById('companyField');
+    function toggleCompany() {
+        companyField.style.display = roleSelect.value === 'hr' ? 'block' : 'none';
+    }
+    roleSelect.addEventListener('change', toggleCompany);
+    toggleCompany();
+</script>
+{% endblock %}

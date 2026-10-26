@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Practice Interview - Resume Radar{% endblock %}
+
+{% block styles %}
+.container { max-width: 800px; margin: 30px auto; padding: 0 20px; }
+.timer { background: #16213e; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+[data-theme="dark"] .timer { background: #000; }
+.question-card { background: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 20px; transition: background 0.3s; }
+.question-card h3 { color: var(--nav-bg); margin-bottom: 15px; transition: color 0.3s; }
+[data-theme="dark"] .question-card h3 { color: var(--accent); }
+textarea { width: 100%; min-height: 150px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; resize: vertical; background: var(--input-bg); color: var(--text); transition: background 0.3s, color 0.3s, border 0.3s; }
+.tip { background: var(--tip-bg); padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 13px; color: var(--tip-text); transition: background 0.3s, color 0.3s; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.nav-btns { margin-top: 20px; display: flex; justify-content: space-between; }
+.progress { text-align: center; margin-bottom: 15px; color: #666; }
+[data-theme="dark"] .progress { color: #aaa; }
+.cheat-warning { background: #ff4444; color: white; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; font-weight: bold; display: none; }
+.btn-followup { margin-top: 12px; background: #16213e; font-size: 13px; padding: 8px 18px; }
+[data-theme="dark"] .btn-followup { background: #0f3460; }
+.btn-followup:hover { background: var(--accent); }
+.btn-followup.loading { pointer-events: none; opacity: 0.7; }
+.followup-box { margin-top: 15px; padding: 18px; background: var(--feedback-bg); border-radius: 10px; border-left: 4px solid var(--accent); animation: fadeIn 0.4s ease; }
+.followup-q { font-weight: 600; color: var(--accent); margin-bottom: 12px; font-size: 15px; line-height: 1.5; }
+.followup-q::before { content: '🤖 '; }
+.followup-box textarea { min-height: 100px; margin-top: 5px; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 768px) {
+  .container { padding: 0 15px; margin: 20px auto; }
+  .timer { font-size: 20px; padding: 12px; }
+  .question-card { padding: 15px; }
+  textarea { min-height: 120px; }
+  .nav-btns { flex-wrap: wrap; gap: 8px; }
+}
+{% endblock %}
+
+{% block nav_subtitle %} | Practice Mode{% if topic %} — {{ topic }}{% endif %}{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('candidate_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="cheat-warning" id="cheatWarning">⚠️ Practice Mode: Tab switching or copy-paste detected!</div>
+    <div class="timer" id="timer">{{ duration }}:00</div>
+    <div class="progress">Question <span id="qNum">1</span> of {{ questions|length }}</div>
+    <div class="question-grid" id="questionGrid"></div>
+
+    <div id="questionContainer">
+        {% for q in questions %}
+        <div class="question-card" id="q{{ loop.index0 }}" style="display: {% if loop.index0 == 0 %}block{% else %}none{% endif %};">
+            <h3>Q{{ loop.index }}: {{ q.question }} <span style="font-size:13px;color:#888;">[{{ q.difficulty }}]</span></h3>
+            <textarea id="ans{{ loop.index0 }}" placeholder="Type your answer here..."></textarea>
+            <div class="tip">
+                💡 Tip: Include keywords like: <strong>{{ q.expected_keywords|join(', ') }}</strong>
+            </div>
+            <button type="button" class="btn btn-followup" id="followBtn{{ loop.index0 }}" onclick="askFollowUp({{ loop.index0 }})">🤖 Ask Follow-up</button>
+            <div class="followup-box" id="followup{{ loop.index0 }}" style="display:none;">
+                <div class="followup-q" id="followupQ{{ loop.index0 }}"></div>
+                <textarea id="followupAns{{ loop.index0 }}" placeholder="Answer the follow-up question..."></textarea>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="nav-btns">
+        <button class="btn btn-secondary" id="prevBtn" onclick="prevQ()" disabled>← Previous</button>
+        <button class="btn" id="nextBtn" onclick="nextQ()">Next →</button>
+        <button class="btn" id="submitBtn" onclick="submitPractice()" style="display:none;">Submit Practice</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const questions = {{ questions|tojson }};
+    let currentQ = 0;
+    const totalQ = questions.length;
+    const times = new Array(totalQ).fill(0);
+    let qStartTime = Date.now();
+    let isSubmitting = false;
+
+    // Build question grid
+    function buildGrid() {
+        const grid = document.getElementById('questionGrid');
+        grid.innerHTML = '';
+        for (let i = 0; i < totalQ; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'q-dot' + (i === currentQ ? ' active' : '');
+            dot.textContent = i + 1;
+            if (document.getElementById('ans' + i).value.trim()) dot.classList.add('answered');
+            dot.onclick = () => { times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000); currentQ = i; qStartTime = Date.now(); showQ(currentQ); buildGrid(); };
+            grid.appendChild(dot);
+        }
+    }
+
+    // Build grid on page load
+    buildGrid();
+
+    // ===== TOAST NOTIFICATION SYSTEM =====
+    function showToast(message, type = 'success', duration = 3000) {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 400);
+        }, duration);
+    }
+
+    // ===== TIMER WITH AUTO-SUBMIT =====
+    let minutes = {{ duration }};
+    let seconds = 0;
+    let timerExpired = false;
+    const timerInterval = setInterval(() => {
+        if (seconds === 0) {
+            if (minutes === 0) {
+                clearInterval(timerInterval);
+                timerExpired = true;
+                document.getElementById('timer').textContent = '⏰ TIME\'S UP!';
+                document.getElementById('timer').style.background = '#e94560';
+                // Disable all textareas
+                document.querySelectorAll('textarea').forEach(ta => { ta.disabled = true; ta.style.opacity = '0.6'; });
+                // Disable nav buttons
+                document.getElementById('prevBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                // Auto-submit
+                showToast('⏰ Time\'s up! Submitting your answers...', 'warning', 5000);
+                submitPractice();
+                return;
+            }
+            minutes--; seconds = 59;
+        } else { seconds--; }
+        document.getElementById('timer').textContent = 
+            String(minutes).padStart(2,'0') + ':' + String(seconds).padStart(2,'0');
+        // Warning when 2 minutes left
+        if (minutes <= 1) {
+            document.getElementById('timer').style.animation = 'pulse 1s infinite';
+        }
+    }, 1000);
+
+    // ===== QUESTION NAVIGATION =====
+    function showQ(idx) {
+        document.querySelectorAll('.question-card').forEach((el, i) => {
+            el.style.display = i === idx ? 'block' : 'none';
+        });
+        document.getElementById('qNum').textContent = idx + 1;
+        document.getElementById('prevBtn').disabled = idx === 0;
+        document.getElementById('nextBtn').style.display = idx === totalQ - 1 ? 'none' : 'inline-block';
+        document.getElementById('submitBtn').style.display = idx === totalQ - 1 ? 'inline-block' : 'none';
+        buildGrid();
+    }
+    function nextQ() {
+        times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000);
+        currentQ++; qStartTime = Date.now(); showQ(currentQ);
+    }
+    function prevQ() {
+        times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000);
+        currentQ--; qStartTime = Date.now(); showQ(currentQ);
+    }
+
+    // ===== AI FOLLOW-UP =====
+    function askFollowUp(idx) {
+        const answer = document.getElementById('ans' + idx).value.trim();
+        if (!answer) { showToast('⚠️ Pehle answer likho, fir follow-up milega!', 'warning'); return; }
+        
+        const btn = document.getElementById('followBtn' + idx);
+        btn.textContent = '🤖 Thinking...';
+        btn.classList.add('loading');
+        
+        fetch('/api/follow_up', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: questions[idx].question, answer: answer })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.follow_up) {
+                document.getElementById('followupQ' + idx).textContent = data.follow_up;
+                document.getElementById('followup' + idx).style.display = 'block';
+                btn.textContent = '✅ Follow-up Asked';
+                btn.disabled = true;
+                showToast('🤖 AI ne follow-up question pucha!', 'success');
+            } else {
+                showToast('❌ Follow-up generate nahi hua', 'error');
+                btn.textContent = '🤖 Ask Follow-up';
+                btn.classList.remove('loading');
+            }
+        })
+        .catch(() => {
+            showToast('❌ Error! Try again.', 'error');
+            btn.textContent = '🤖 Ask Follow-up';
+            btn.classList.remove('loading');
+        });
+    }
+
+    // ===== SUBMIT =====
+    function submitPractice() {
+        if (isSubmitting) return;
+        isSubmitting = true;
+        times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000);
+        const answers = [];
+        for (let i = 0; i < totalQ; i++) {
+            const mainAns = document.getElementById('ans' + i).value;
+            const followupAns = document.getElementById('followupAns' + i).value;
+            let fullAnswer = mainAns;
+            if (followupAns.trim()) fullAnswer += '\n\n[Follow-up Answer]: ' + followupAns;
+            answers.push({ answer: fullAnswer, time_taken: times[i] });
+        }
+        // Disable submit button
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
+
+        fetch('/candidate/practice_interview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: answers })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Practice completed! Score: ' + data.score + '/' + data.max_score, 'success', 3000);
+                setTimeout(() => { window.location.href = '/candidate/practice_results'; }, 2000);
+            }
+        })
+        .catch(err => {
+            showToast('❌ Submission failed. Please try again.', 'error', 5000);
+            isSubmitting = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Practice'; }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Dashboard - Resume Radar{% endblock %}
+
+{% block styles %}
+.practice-card { background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); color: white; padding: 35px; border-radius: 12px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+.practice-card h2 { color: white; margin-bottom: 10px; font-size: 26px; }
+.practice-card p { opacity: 0.9; font-size: 16px; margin-bottom: 18px; }
+.practice-card .btn { background: var(--accent); font-size: 16px; padding: 14px 32px; }
+.practice-card .btn:hover { background: var(--accent-hover); }
+.practice-icon { font-size: 56px; margin-right: 25px; }
+.practice-content { flex: 1; }
+.tips-section { margin-top: 10px; }
+.tips-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.btn-tips { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 14px; padding: 10px 22px; border: none; }
+.btn-tips:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-tips.loading { pointer-events: none; opacity: 0.7; }
+.tips-result { margin-top: 20px; animation: fadeIn 0.5s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.score-circle { width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin: 0 auto 20px; color: white; }
+.score-circle.high { background: linear-gradient(135deg, #28a745, #20c997); }
+.score-circle.mid { background: linear-gradient(135deg, #ffc107, #fd7e14); }
+.score-circle.low { background: linear-gradient(135deg, #dc3545, #e94560); }
+.tip-card { display: flex; align-items: flex-start; gap: 15px; padding: 15px; background: var(--card-bg); border-radius: 10px; margin-bottom: 10px; border-left: 4px solid var(--accent); transition: transform 0.2s; }
+.tip-card:hover { transform: translateX(5px); }
+.tip-icon { font-size: 28px; flex-shrink: 0; }
+.tip-title { font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.tip-detail { font-size: 13px; color: #888; line-height: 1.5; }
+[data-theme="dark"] .tip-detail { color: #aaa; }
+{% endblock %}
+
+{% block nav_subtitle %} | Candidate Panel{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('candidate_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('practice_select') }}">Practice</a>
+<a href="{{ url_for('settings') }}">Settings</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="practice-card">
+        <div class="practice-content">
+            <h2>🎯 Practice Interview</h2>
+            <p>Sharpen your skills with AI-generated questions before the real interview! Get instant feedback and improve your score.</p>
+            <a href="{{ url_for('practice_select') }}" class="btn">Start Practice →</a>
+        </div>
+        <div class="practice-icon">🎤</div>
+    </div>
+
+    <div class="section">
+        <h2>👤 Profile</h2>
+        <p><strong>Name:</strong> {{ current_user.full_name }}</p>
+        <p><strong>Email:</strong> {{ current_user.email }}</p>
+        {% if skills %}
+        <p><strong>Skills Detected:</strong>
+            {% for skill in skills %}
+            <span class="skill-tag">{{ skill }}</span>
+            {% endfor %}
+        </p>
+        {% endif %}
+        <form action="{{ url_for('upload_resume') }}" method="POST" enctype="multipart/form-data" class="upload-box">
+            <span class="upload-icon">📄</span>
+            <p><strong>Drop your resume here</strong> or click to browse</p>
+            <p class="upload-text">Supports PDF, DOCX, TXT</p>
+            <input type="file" name="resume" accept=".pdf,.docx,.txt" required style="display:none;" id="resumeFile">
+            <div class="file-name"></div>
+            <br><button type="submit" class="btn">Upload Resume</button>
+        </form>
+        {% if current_user.resume_path %}
+        <form action="{{ url_for('delete_resume') }}" method="POST" style="margin-top: 12px; text-align: center;" onsubmit="return confirm('Delete your resume? Your skills and job matches will be cleared.')">
+            <button type="submit" class="btn btn-sm btn-danger">🗑️ Delete Resume</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if skills %}
+    <div class="section tips-section">
+        <div class="tips-header">
+            <h2>💡 AI Resume Tips</h2>
+            <button class="btn btn-tips" id="getTipsBtn" onclick="getResumeTips()">🤖 Analyze My Resume</button>
+        </div>
+        <div id="tipsResult"></div>
+    </div>
+    {% endif %}
+
+    <div class="section">
+        <h2>🎯 Job Matches</h2>
+        {% if matches %}
+        <table>
+            <tr><th>Job Title</th><th>Match Score</th><th>Skills Match</th><th>Exp Match</th><th>Edu Match</th></tr>
+            {% for m in matches %}
+            <tr>
+                <td>{{ m.job.title }}</td>
+                <td>
+                    <div class="progress-bar" style="width: 180px;">
+                        <div class="progress-fill" style="width: {{ m.score.total_score }}%;">{{ "%.0f"|format(m.score.total_score) }}%</div>
+                    </div>
+                </td>
+                <td>{{ "%.0f"|format(m.score.skill_score) }}%</td>
+                <td>{{ "%.0f"|format(m.score.exp_score) }}%</td>
+                <td>{{ "%.0f"|format(m.score.edu_score) }}%</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📊</span>
+            <h3>No Job Matches Yet</h3>
+            <p>Upload your resume above to see how well you match with available positions!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>⏳ Pending Interviews</h2>
+        {% if pending_interviews %}
+        <table>
+            <tr><th>Title</th><th>Duration</th><th>Status</th><th>Action</th></tr>
+            {% for interview in pending_interviews %}
+            <tr>
+                <td>{{ interview.title }}</td>
+                <td>{{ interview.duration_minutes }} min</td>
+                <td><span class="badge badge-pending">{{ interview.status }}</span></td>
+                <td><a href="{{ url_for('take_interview', interview_id=interview.id) }}" class="btn btn-sm">Start Interview</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">⏳</span>
+            <h3>No Pending Interviews</h3>
+            <p>When an HR assigns you an interview, it will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>✅ Completed Interviews</h2>
+        {% if completed_interviews %}
+        <table>
+            <tr><th>Title</th><th>Score</th><th>Date</th><th>Action</th></tr>
+            {% for interview in completed_interviews %}
+            <tr>
+                <td>{{ interview.title }}</td>
+                <td>{{ "%.1f"|format(interview.total_score) }} / {{ "%.1f"|format(interview.max_possible_score) }}</td>
+                <td>{{ interview.completed_at.strftime('%Y-%m-%d') if interview.completed_at else 'N/A' }}</td>
+                <td><a href="{{ url_for('candidate_results', interview_id=interview.id) }}" class="btn btn-secondary btn-sm">View Results</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">✅</span>
+            <h3>No Completed Interviews</h3>
+            <p>Complete your interviews to see results and feedback here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    initDragDrop('.upload-box', '#resumeFile');
+
+    const iconMap = {
+        skill: '🎯', format: '📝', achievement: '🏆', keyword: '🔑',
+        section: '📋', experience: '💼', project: '🚀'
+    };
+
+    function getResumeTips() {
+        const btn = document.getElementById('getTipsBtn');
+        const result = document.getElementById('tipsResult');
+        btn.textContent = '🤖 Analyzing...';
+        btn.classList.add('loading');
+        result.innerHTML = '<p style="text-align:center;color:#888;margin:20px 0;">⏳ AI is analyzing your resume...</p>';
+
+        fetch('/api/resume_tips')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                result.innerHTML = '<p style="color:var(--accent);">' + data.error + '</p>';
+                btn.textContent = '🤖 Analyze My Resume';
+                btn.classList.remove('loading');
+                return;
+            }
+            const scoreClass = data.score >= 75 ? 'high' : data.score >= 50 ? 'mid' : 'low';
+            let html = '<div class="tips-result">';
+            html += '<div class="score-circle ' + scoreClass + '">' + data.score + '%</div>';
+            html += '<p style="text-align:center;margin-bottom:20px;font-weight:600;">Resume Strength Score</p>';
+            data.tips.forEach(tip => {
+                const icon = iconMap[tip.icon] || '💡';
+                html += '<div class="tip-card">';
+                html += '<div class="tip-icon">' + icon + '</div>';
+                html += '<div><div class="tip-title">' + tip.title + '</div>';
+                html += '<div class="tip-detail">' + tip.detail + '</div></div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            result.innerHTML = html;
+            btn.textContent = '✅ Analysis Complete';
+            btn.disabled = true;
+        })
+        .catch(() => {
+            result.innerHTML = '<p style="color:var(--accent);">Error! Try again.</p>';
+            btn.textContent = '🤖 Analyze My Resume';
+            btn.classList.remove('loading');
+        });
+    }
+</script>
+{% endblock %}

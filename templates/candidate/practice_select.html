@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Select Practice Topic — Resume Radar{% endblock %}
+
+{% block styles %}
+<style>
+    .topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 25px; }
+    .topic-card { background: var(--card-bg); border: 2px solid var(--border); border-radius: 14px; padding: 28px 22px; text-align: center; cursor: pointer; transition: all 0.3s ease; text-decoration: none; color: var(--text); }
+    .topic-card:hover { border-color: var(--accent); transform: translateY(-5px); box-shadow: 0 8px 25px var(--shadow); }
+    .topic-card.selected { border-color: var(--accent); background: rgba(233, 69, 96, 0.08); }
+    .topic-emoji { font-size: 48px; display: block; margin-bottom: 12px; }
+    .topic-card h3 { margin: 0 0 8px 0; font-size: 18px; color: var(--text); }
+    .topic-card p { font-size: 13px; opacity: 0.7; margin: 0; }
+    .topic-card .q-count { display: inline-block; background: var(--accent); color: white; padding: 3px 10px; border-radius: 20px; font-size: 12px; margin-top: 10px; }
+    .section-title { text-align: center; margin-bottom: 10px; }
+    .section-subtitle { text-align: center; color: #888; font-size: 15px; margin-bottom: 30px; }
+    .start-section { text-align: center; margin-top: 35px; }
+    .start-section .btn { font-size: 18px; padding: 16px 50px; }
+    .start-section .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .back-link { text-align: center; margin-top: 15px; }
+    .back-link a { color: var(--accent); text-decoration: none; font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block nav_subtitle %} | Candidate Panel{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('candidate_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('practice_select') }}">Practice</a>
+<a href="{{ url_for('settings') }}">Settings</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="section-title">🎯 Choose Practice Topic</h1>
+    <p class="section-subtitle">Select a topic to practice interview questions</p>
+
+    <div class="topic-grid">
+        {% for topic in topics %}
+        <div class="topic-card" data-topic="{{ topic.id }}" onclick="selectTopic(this, '{{ topic.id }}')">
+            <span class="topic-emoji">{{ topic.emoji }}</span>
+            <h3>{{ topic.name }}</h3>
+            <p>{{ topic.desc }}</p>
+            <span class="q-count">{{ topic.count }} Questions</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="start-section">
+        <form action="{{ url_for('practice_interview') }}" method="GET">
+            <input type="hidden" name="topic" id="selectedTopic" value="">
+            <button type="submit" class="btn" id="startBtn" disabled>Select a Topic to Start →</button>
+        </form>
+    </div>
+    <div class="back-link">
+        <a href="{{ url_for('candidate_dashboard') }}">← Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selectTopic(card, topicId) {
+    document.querySelectorAll('.topic-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    document.getElementById('selectedTopic').value = topicId;
+    const btn = document.getElementById('startBtn');
+    btn.disabled = false;
+    btn.textContent = 'Start Practice →';
+}
+</script>
+{% endblock %}

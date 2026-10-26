@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Resume Radar - AI Recruitment{% endblock %}
+
+{% block styles %}
+.hero {
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    padding: 100px 20px;
+    background: var(--hero-bg);
+    color: white;
+    transition: background 0.3s;
+}
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(233,69,96,0.1) 0%, transparent 70%);
+    animation: heroGlow 8s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes heroGlow {
+    0%,100% { transform: translate(0,0); }
+    50% { transform: translate(20px, 20px); }
+}
+.hero h2 {
+    font-size: 48px;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #fff 0%, #e94560 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.hero p {
+    font-size: 18px;
+    margin-bottom: 40px;
+    color: #ccc;
+}
+.hero .btn {
+    margin: 0 10px;
+    padding: 14px 35px;
+}
+.features {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    padding: 60px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.feature-card {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px var(--shadow);
+    flex: 1;
+    text-align: center;
+    color: var(--text);
+    transition: transform 0.3s, box-shadow 0.3s, background 0.3s, color 0.3s;
+}
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px var(--shadow);
+}
+.feature-card .feature-emoji {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 15px;
+}
+.feature-card h3 {
+    color: var(--nav-bg);
+    margin-bottom: 10px;
+    transition: color 0.3s;
+}
+[data-theme="dark"] .feature-card h3 {
+    color: var(--accent);
+}
+.feature-card p {
+    color: #666;
+    font-size: 14px;
+}
+[data-theme="dark"] .feature-card p {
+    color: #aaa;
+}
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h2>AI-Powered Recruitment</h2>
+    <p>Smart resume parsing, skill matching, and automated interviews — all in one platform.</p>
+    <a href="{{ url_for('register') }}" class="btn">Get Started</a>
+    <a href="{{ url_for('login') }}" class="btn" style="background: transparent; border: 2px solid var(--accent);">Login</a>
+</div>
+<div class="features">
+    <div class="feature-card">
+        <span class="feature-emoji">📄</span>
+        <h3>Resume Parsing</h3>
+        <p>Extract skills automatically from PDF, DOCX, and TXT resumes.</p>
+    </div>
+    <div class="feature-card">
+        <span class="feature-emoji">🎯</span>
+        <h3>Skill Matching</h3>
+        <p>AI-powered scoring against job descriptions with weighted criteria.</p>
+    </div>
+    <div class="feature-card">
+        <span class="feature-emoji">🎤</span>
+        <h3>Smart Interviews</h3>
+        <p>Automated interviews with real-time scoring and feedback.</p>
+    </div>
+</div>
+{% endblock %}

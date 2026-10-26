@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Resume Radar{% endblock %}
+
+{% block styles %}
+.settings-container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px var(--shadow);
+    transition: background 0.3s;
+}
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.dark-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+.dark-toggle input {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+@media (max-width: 768px) {
+    .settings-container {
+        margin: 20px 15px;
+        padding: 20px;
+    }
+}
+{% endblock %}
+
+{% block nav_subtitle %} | Settings{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('candidate_dashboard') if current_user.role == 'candidate' else url_for('hr_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block flash_messages %}{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h2>⚙️ Settings</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="POST">
+        <div class="toggle-row">
+            <label class="dark-toggle">
+                <input type="checkbox" name="dark_mode" id="dmToggle" {% if settings.dark_mode %}checked{% endif %}>
+                <span>Dark Mode</span>
+            </label>
+        </div>
+        <div class="form-group">
+            <label>Skill Weight (%)</label>
+            <input type="number" class="weight-input" name="weight_skills" value="{{ settings.weight_skills }}" min="0" max="100">
+        </div>
+        <div class="form-group">
+            <label>Experience Weight (%)</label>
+            <input type="number" class="weight-input" name="weight_experience" value="{{ settings.weight_experience }}" min="0" max="100">
+        </div>
+        <div class="form-group">
+            <label>Education Weight (%)</label>
+            <input type="number" class="weight-input" name="weight_education" value="{{ settings.weight_education }}" min="0" max="100">
+        </div>
+        <div class="weight-bar"><div class="weight-bar-fill" id="weightBarFill"></div></div>
+        <div class="weight-status" id="weightStatus"></div>
+        <button type="submit" class="btn">Save Settings</button>
+    </form>
+
+    <hr style="margin: 30px 0; border: 1px solid var(--border);">
+    <h2 style="color: #dc3545;">⚠️ Danger Zone</h2>
+    <p style="font-size: 14px; color: #888; margin-bottom: 15px;">This action is permanent and cannot be undone.</p>
+    <form action="{{ url_for('delete_account') }}" method="POST" onsubmit="return confirm('Are you SURE? This will permanently delete your account and ALL your data. This cannot be undone!')">
+        <button type="submit" class="btn btn-danger">🗑️ Delete My Account</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dmToggle = document.getElementById('dmToggle');
+    if (dmToggle) {
+        dmToggle.addEventListener('change', function() {
+            const isDark = this.checked;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            localStorage.setItem('rr_theme', isDark ? 'dark' : 'light');
+            fetch('/api/toggle_dark_mode', { method: 'POST' }).catch(() => {});
+            const btn = document.querySelector('.theme-toggle');
+            if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+        });
+    }
+</script>
+<script>
+    initWeightValidation('.weight-input', '#weightBarFill', '#weightStatus');
+</script>
+{% endblock %}

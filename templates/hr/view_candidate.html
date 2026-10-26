@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}View Candidates - Resume Radar{% endblock %}
+
+{% block styles %}
+.score { font-weight: bold; color: var(--accent); }
+td { vertical-align: top; }
+td div { margin-bottom: 4px; }
+td div:last-child { margin-bottom: 0; }
+{% endblock %}
+
+{% block nav_subtitle %} | HR Panel{% endblock %}
+
+{% block nav_links %}
+<a href="{{ url_for('hr_dashboard') }}">Dashboard</a>
+<a href="{{ url_for('view_candidate') }}">Candidates</a>
+<a href="{{ url_for('settings') }}">Settings</a>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section">
+        <h2>👥 Candidates</h2>
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Email</th><th>Skills</th><th>Job Matches</th></tr>
+            </thead>
+            <tbody>
+                {% for item in candidate_scores %}
+                <tr>
+                    <td>{{ item.candidate.full_name }}</td>
+                    <td>{{ item.candidate.email }}</td>
+                    <td>
+                        {% if item.candidate.extracted_skills %}
+                            {% for skill in item.candidate.extracted_skills|fromjson %}
+                            <span class="skill-tag">{{ skill }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <em>No skills extracted</em>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% for s in item.scores %}
+                        <div>{{ s.job }}: <span class="score">{{ "%.1f"|format(s.score) }}%</span></div>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #888; padding: 25px;">No candidates found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

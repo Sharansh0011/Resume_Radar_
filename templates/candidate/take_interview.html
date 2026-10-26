@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Live Interview - Resume Radar{% endblock %}
+
+{% block styles %}
+.container { max-width: 800px; margin: 30px auto; padding: 0 20px; }
+.timer { background: var(--accent); color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+.question-card { background: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 20px; transition: background 0.3s; }
+.question-card h3 { color: var(--nav-bg); margin-bottom: 15px; transition: color 0.3s; }
+[data-theme="dark"] .question-card h3 { color: var(--accent); }
+textarea { width: 100%; min-height: 150px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; resize: vertical; background: var(--input-bg); color: var(--text); transition: background 0.3s, color 0.3s, border 0.3s; }
+.tip { background: var(--tip-bg); padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 13px; color: var(--tip-text); transition: background 0.3s, color 0.3s; }
+.btn:disabled { background: #ccc; cursor: not-allowed; }
+.nav-btns { margin-top: 20px; display: flex; justify-content: space-between; }
+.progress { text-align: center; margin-bottom: 15px; color: #666; }
+[data-theme="dark"] .progress { color: #aaa; }
+.cheat-warning { background: #ff4444; color: white; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; font-weight: bold; display: none; }
+.toast { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: bold; z-index: 9999; transform: translateX(120%); transition: transform 0.4s ease; }
+.toast.show { transform: translateX(0); }
+.toast-success { background: #28a745; }
+.toast-error { background: #dc3545; }
+.toast-warning { background: #ffc107; color: #333; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+@media (max-width: 768px) {
+  .container { padding: 0 15px; margin: 20px auto; }
+  .timer { font-size: 20px; padding: 12px; }
+  .question-card { padding: 15px; }
+  textarea { min-height: 120px; }
+  .nav-btns { flex-wrap: wrap; gap: 8px; }
+}
+{% endblock %}
+
+{% block nav_subtitle %} | Live Interview{% endblock %}
+
+{% block nav_links %}
+<span style="color: var(--nav-text); font-weight: 500;">{{ interview.title }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="cheat-warning" id="cheatWarning">⚠️ Anti-Cheating Alert: Tab switching or copy-paste detected!</div>
+    <div class="timer" id="timer">{{ duration }}:00</div>
+    <div class="progress">Question <span id="qNum">1</span> of {{ questions|length }}</div>
+    <div class="question-grid" id="questionGrid"></div>
+
+    <div id="questionContainer">
+        {% for q in questions %}
+        <div class="question-card" id="q{{ loop.index0 }}" style="display: {% if loop.index0 == 0 %}block{% else %}none{% endif %};">
+            <h3>Q{{ loop.index }}: {{ q.question }} <span style="font-size:13px;color:#888;">[{{ q.difficulty }}]</span></h3>
+            <textarea id="ans{{ loop.index0 }}" placeholder="Type your answer here..." oncopy="return false;" oncut="return false;" onpaste="return false;"></textarea>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="nav-btns">
+        <button class="btn btn-secondary" id="prevBtn" onclick="prevQ()" disabled>← Previous</button>
+        <button class="btn" id="nextBtn" onclick="nextQ()">Next →</button>
+        <button class="btn" id="submitBtn" onclick="submitInterview()" style="display:none;">Submit Interview</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    const INTERVIEW_ID = '{{ interview.id }}';
+    const DRAFT_KEY = 'rr_draft_' + INTERVIEW_ID;
+    const questions = {{ questions|tojson }};
+    let currentQ = 0;
+    const totalQ = questions.length;
+    const startTime = Date.now();
+    let qStartTime = Date.now();
+    const times = new Array(totalQ).fill(0);
+    let tabSwitches = 0;
+    let copyPasteAttempts = 0;
+    let isSubmitting = false;
+
+    // Build question grid
+    function buildGrid() {
+        const grid = document.getElementById('questionGrid');
+        grid.innerHTML = '';
+        for (let i = 0; i < totalQ; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'q-dot' + (i === currentQ ? ' active' : '');
+            dot.textContent = i + 1;
+            if (document.getElementById('ans' + i).value.trim()) dot.classList.add('answered');
+            dot.onclick = () => { times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000); currentQ = i; qStartTime = Date.now(); showQ(currentQ); buildGrid(); saveDraft(); };
+            grid.appendChild(dot);
+        }
+    }
+
+    // ===== TOAST NOTIFICATION SYSTEM =====
+    function showToast(message, type = 'success', duration = 3000) {
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.textContent = message;
+        document.getElementById('toastContainer').appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 400);
+        }, duration);
+    }
+
+    // ===== AUTOSAVE TO LOCALSTORAGE =====
+    function saveDraft() {
+        const draft = { answers: [], timestamp: Date.now() };
+        for (let i = 0; i < totalQ; i++) {
+            const ta = document.getElementById('ans' + i);
+            draft.answers.push(ta ? ta.value : '');
+        }
+        try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch(e) {}
+    }
+
+    function loadDraft() {
+        try {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (!saved) return false;
+            const draft = JSON.parse(saved);
+            // Only restore if draft is less than 24 hours old
+            if (Date.now() - draft.timestamp > 24 * 60 * 60 * 1000) {
+                localStorage.removeItem(DRAFT_KEY);
+                return false;
+            }
+            if (draft.answers && draft.answers.length === totalQ) {
+                let hasContent = false;
+                for (let i = 0; i < totalQ; i++) {
+                    if (draft.answers[i]) {
+                        document.getElementById('ans' + i).value = draft.answers[i];
+                        hasContent = true;
+                    }
+                }
+                if (hasContent) {
+                    showToast('📝 Draft restored from previous session!', 'warning', 4000);
+                    buildGrid();
+                    return true;
+                }
+            }
+        } catch(e) {}
+        return false;
+    }
+
+    function clearDraft() {
+        try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+    }
+
+    // Load draft on page load
+    loadDraft();
+    buildGrid();
+
+    // Autosave every 30 seconds
+    setInterval(saveDraft, 30000);
+
+    // Save draft before page unload
+    window.addEventListener('beforeunload', (e) => {
+        if (!isSubmitting) {
+            saveDraft();
+            e.preventDefault();
+            e.returnValue = 'You have an interview in progress. Are you sure you want to leave?';
+        }
+    });
+
+    // ===== TIMER WITH AUTO-SUBMIT =====
+    let minutes = {{ duration }};
+    let seconds = 0;
+    let timerExpired = false;
+    const timerInterval = setInterval(() => {
+        if (seconds === 0) {
+            if (minutes === 0) {
+                clearInterval(timerInterval);
+                timerExpired = true;
+                document.getElementById('timer').textContent = '⏰ TIME\'S UP!';
+                document.getElementById('timer').style.background = '#ff4444';
+                // Disable all textareas
+                document.querySelectorAll('textarea').forEach(ta => { ta.disabled = true; ta.style.opacity = '0.6'; });
+                // Disable nav buttons
+                document.getElementById('prevBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                // Auto-submit
+                showToast('⏰ Time\'s up! Submitting your answers...', 'warning', 5000);
+                submitInterview();
+                return;
+            }
+            minutes--; seconds = 59;
+        } else { seconds--; }
+        document.getElementById('timer').textContent = 
+            String(minutes).padStart(2,'0') + ':' + String(seconds).padStart(2,'0');
+        // Warning when 2 minutes left
+        if (minutes <= 1 && !document.getElementById('timer').classList.contains('timer-warning')) {
+            document.getElementById('timer').style.animation = 'pulse 1s infinite';
+        }
+    }, 1000);
+
+    // ===== ANTI-CHEAT =====
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) { tabSwitches++; showCheatWarning(); }
+    });
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'v' || e.key === 'x')) {
+            e.preventDefault(); copyPasteAttempts++; showCheatWarning();
+        }
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J'))) {
+            e.preventDefault();
+        }
+    });
+    function showCheatWarning() {
+        const el = document.getElementById('cheatWarning');
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 3000);
+    }
+
+    // ===== QUESTION NAVIGATION =====
+    function showQ(idx) {
+        document.querySelectorAll('.question-card').forEach((el, i) => {
+            el.style.display = i === idx ? 'block' : 'none';
+        });
+        document.getElementById('qNum').textContent = idx + 1;
+        document.getElementById('prevBtn').disabled = idx === 0;
+        document.getElementById('nextBtn').style.display = idx === totalQ - 1 ? 'none' : 'inline-block';
+        document.getElementById('submitBtn').style.display = idx === totalQ - 1 ? 'inline-block' : 'none';
+        buildGrid();
+    }
+    function nextQ() {
+        times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000);
+        currentQ++; qStartTime = Date.now(); showQ(currentQ);
+        saveDraft(); // Save on navigation
+    }
+    function prevQ() {
+        times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000);
+        currentQ--; qStartTime = Date.now(); showQ(currentQ);
+        saveDraft(); // Save on navigation
+    }
+
+    // ===== SUBMIT =====
+    function submitInterview() {
+        if (isSubmitting) return; // Prevent double submission
+        isSubmitting = true;
+        times[currentQ] += Math.floor((Date.now() - qStartTime) / 1000);
+        const answers = [];
+        for (let i = 0; i < totalQ; i++) {
+            answers.push({ answer: document.getElementById('ans' + i).value, time_taken: times[i] });
+        }
+        // Disable submit button
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
+
+        fetch('/candidate/interview/{{ interview.id }}/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: answers, tab_switches: tabSwitches, copy_paste_attempts: copyPasteAttempts })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                clearDraft(); // Remove saved draft on successful submission
+                window.location.href = data.redirect;
+            } else {
+                showToast('❌ Error: ' + data.error, 'error');
+                isSubmitting = false;
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Interview'; }
+            }
+        })
+        .catch(err => {
+            showToast('❌ Submission failed. Please try again.', 'error', 5000);
+            isSubmitting = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Interview'; }
+        });
+    }
+</script>
+{% endblock %}
