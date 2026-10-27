@@ -472,27 +472,30 @@ def upload_resume():
         return redirect(url_for('candidate_dashboard'))
 
     if file and allowed_file(file.filename):
-        filename = secure_filename(f"{current_user.id}_{file.filename}")
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-
-        resume_text = parse_resume(filepath)
-        skills = extract_skills(resume_text)
-
-        current_user.resume_path = filename  # Store filename only, not full path
-        current_user.resume_text = resume_text  # Store parsed text in DB
-        current_user.extracted_skills = json.dumps(skills)
-        current_user.experience_years = 2.0
-        current_user.education = 'B.Tech'
-        db.session.commit()
-
-        # Clean up uploaded file (not needed after parsing on Render)
         try:
-            os.remove(filepath)
-        except:
-            pass
+            filename = secure_filename(f"{current_user.id}_{file.filename}")
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
 
-        flash(f'Resume uploaded successfully! Detected {len(skills)} skills.', 'success')
+            resume_text = parse_resume(filepath)
+            skills = extract_skills(resume_text)
+
+            current_user.resume_path = filename  # Store filename only, not full path
+            current_user.resume_text = resume_text  # Store parsed text in DB
+            current_user.extracted_skills = json.dumps(skills)
+            current_user.experience_years = 2.0
+            current_user.education = 'B.Tech'
+            db.session.commit()
+
+            # Clean up uploaded file (not needed after parsing on Render)
+            try:
+                os.remove(filepath)
+            except:
+                pass
+
+            flash(f'Resume uploaded successfully! Detected {len(skills)} skills.', 'success')
+        except Exception as e:
+            flash(f'Error uploading resume: {str(e)}', 'danger')
     else:
         flash('Invalid file format! Please upload PDF, DOCX, or TXT.', 'danger')
 
