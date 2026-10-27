@@ -81,6 +81,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     resume_path = db.Column(db.String(255))
+    resume_text = db.Column(db.Text)
     extracted_skills = db.Column(db.Text)
     experience_years = db.Column(db.Float, default=0)
     education = db.Column(db.Text)
@@ -471,11 +472,18 @@ def upload_resume():
         resume_text = parse_resume(filepath)
         skills = extract_skills(resume_text)
 
-        current_user.resume_path = filepath
+        current_user.resume_path = filename  # Store filename only, not full path
+        current_user.resume_text = resume_text  # Store parsed text in DB
         current_user.extracted_skills = json.dumps(skills)
         current_user.experience_years = 2.0
         current_user.education = 'B.Tech'
         db.session.commit()
+
+        # Clean up uploaded file (not needed after parsing on Render)
+        try:
+            os.remove(filepath)
+        except:
+            pass
 
         flash(f'Resume uploaded successfully! Detected {len(skills)} skills.', 'success')
     else:
@@ -795,13 +803,13 @@ def api_resume_tips():
     if current_user.role != 'candidate':
         return jsonify({'error': 'Only candidates can get resume tips'}), 403
     
-    if not current_user.resume_path:
+    if not current_user.resume_path and not current_user.resume_text:
         return jsonify({'error': 'Upload your resume first'}), 400
     
-    # Parse resume to get text
-    resume_text = parse_resume(current_user.resume_path)
+    # Use stored resume text from DB (works on Render where files are ephemeral)
+    resume_text = current_user.resume_text
     if not resume_text:
-        return jsonify({'error': 'Could not read resume file'}), 400
+        return jsonify({'error': 'Could not read resume. Please re-upload.'}), 400
     
     tips_data = generate_resume_tips(
         resume_text,
@@ -855,11 +863,14 @@ def delete_resume():
     if current_user.role != 'candidate':
         flash('Unauthorized', 'error')
         return redirect(url_for('index'))
-    if current_user.resume_path:
-        # Delete file from disk
-        if os.path.exists(current_user.resume_path):
-            os.remove(current_user.resume_path)
+    if current_user.resume_path or current_user.resume_text:
+        # Try to delete file from disk (may not exist on Render)
+        if current_user.resume_path:
+            full_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.resume_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
         current_user.resume_path = None
+        current_user.resume_text = None
         current_user.extracted_skills = None
         current_user.experience_years = None
         current_user.education = None
@@ -896,9 +907,11 @@ def delete_account():
         responses = InterviewResponse.query.filter_by(candidate_id=user_id).all()
         for resp in responses:
             db.session.delete(resp)
-        # Delete resume file
-        if current_user.resume_path and os.path.exists(current_user.resume_path):
-            os.remove(current_user.resume_path)
+        # Delete resume file (may not exist on Render)
+        if current_user.resume_path:
+            full_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.resume_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
     
     logout_user()
     user = db.session.get(User, user_id)
