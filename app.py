@@ -151,8 +151,11 @@ class UserSettings(db.Model):
 # ======================= AUTH ROUTES =======================
 
 # Create tables on startup (needed for gunicorn/Render deployment)
-with app.app_context():
-    db.create_all()
+try:
+    with app.app_context():
+        db.create_all()
+except Exception as e:
+    print(f"[Resume Radar] DB init warning: {e}")
 
 @login_manager.user_loader
 def load_user(user_id):

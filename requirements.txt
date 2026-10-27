@@ -7,5 +7,6 @@ python-docx
 reportlab
 gunicorn
 psycopg2-binary
+psycopg-binary
 google-generativeai
 python-dotenv
