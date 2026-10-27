@@ -157,6 +157,13 @@ class UserSettings(db.Model):
 try:
     with app.app_context():
         db.create_all()
+        # Add new columns to existing tables (PostgreSQL doesn't auto-add)
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(db.text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS resume_text TEXT'))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists or SQLite (which doesn't support IF NOT EXISTS)
 except Exception as e:
     print(f"[Resume Radar] DB init warning: {e}")
 
