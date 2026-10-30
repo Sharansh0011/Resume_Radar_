@@ -74,7 +74,8 @@
                 <td>{{ job.required_skills or 'N/A' }}</td>
                 <td>{{ job.min_experience }} yrs</td>
                 <td>{{ job.created_at.strftime('%Y-%m-%d') if job.created_at else 'N/A' }}</td>
-                <td>
+                <td style="display:flex;gap:6px;align-items:center;">
+                    <a href="{{ url_for('job_candidates', job_id=job.id) }}" class="btn btn-sm" style="background:var(--primary-color);color:white;">👥 Candidates</a>
                     <form action="{{ url_for('delete_job', job_id=job.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete job &quot;{{ job.title }}&quot; and all its interviews?')">
                         <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
                     </form>

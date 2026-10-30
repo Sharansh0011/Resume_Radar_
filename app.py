@@ -335,6 +335,35 @@ def view_candidate():
 
     return render_template('hr/view_candidate.html', candidate_scores=candidate_scores, jobs=jobs)
 
+@app.route('/hr/job/<int:job_id>/candidates')
+@login_required
+def job_candidates(job_id):
+    """HR: View all candidates ranked by match score for a specific job."""
+    if current_user.role != 'hr':
+        return redirect(url_for('index'))
+
+    job = JobDescription.query.filter_by(id=job_id, hr_id=current_user.id).first_or_404()
+    candidates = User.query.filter_by(role='candidate').all()
+
+    ranked = []
+    for candidate in candidates:
+        score_data = calculate_match_score(
+            candidate.extracted_skills or '[]',
+            candidate.experience_years or 0,
+            candidate.education or '',
+            job.required_skills or '',
+            job.min_experience or 0
+        )
+        ranked.append({
+            'candidate': candidate,
+            'score': score_data,
+        })
+
+    # Sort by total_score descending (best match first)
+    ranked.sort(key=lambda x: x['score']['total_score'], reverse=True)
+
+    return render_template('hr/job_candidates.html', job=job, ranked=ranked)
+
 @app.route('/hr/create_interview', methods=['POST'])
 @login_required
 def create_interview():

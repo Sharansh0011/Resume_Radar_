@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Candidates for {{ job.title }} - Resume Radar{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:900px;margin:30px auto;padding:0 20px;">
+
+    <div style="display:flex;align-items:center;gap:15px;margin-bottom:25px;">
+        <a href="{{ url_for('hr_dashboard') }}" class="btn btn-sm" style="background:var(--card-bg);border:1px solid var(--border-color);">← Back</a>
+        <div>
+            <h2 style="margin:0;">📋 {{ job.title }}</h2>
+            <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.9rem;">
+                Candidates ranked by match score • Required skills: {{ job.required_skills or 'Not specified' }}
+            </p>
+        </div>
+    </div>
+
+    {% if ranked %}
+    <div style="background:var(--card-bg);border-radius:12px;border:1px solid var(--border-color);overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:var(--primary-color);color:white;">
+                    <th style="padding:14px 18px;text-align:left;">#</th>
+                    <th style="padding:14px 18px;text-align:left;">Candidate</th>
+                    <th style="padding:14px 18px;text-align:center;">Match Score</th>
+                    <th style="padding:14px 18px;text-align:center;">Skills</th>
+                    <th style="padding:14px 18px;text-align:center;">Experience</th>
+                    <th style="padding:14px 18px;text-align:center;">Education</th>
+                    <th style="padding:14px 18px;text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ranked %}
+                {% set c = item.candidate %}
+                {% set s = item.score %}
+                {% set pct = s.total_score %}
+                {% set color = '#22c55e' if pct >= 70 else ('#f59e0b' if pct >= 40 else '#ef4444') %}
+                <tr style="border-bottom:1px solid var(--border-color);{% if loop.index == 1 %}background:rgba(99,102,241,0.05);{% endif %}">
+                    <td style="padding:14px 18px;font-weight:700;color:var(--primary-color);">
+                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                    </td>
+                    <td style="padding:14px 18px;">
+                        <div style="font-weight:600;">{{ c.full_name }}</div>
+                        <div style="font-size:0.82rem;color:var(--text-muted);">{{ c.email }}</div>
+                    </td>
+                    <td style="padding:14px 18px;text-align:center;">
+                        <div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;">
+                            <span style="font-size:1.3rem;font-weight:700;color:{{ color }};">{{ "%.0f"|format(pct) }}%</span>
+                            <div style="width:80px;height:6px;background:var(--border-color);border-radius:3px;overflow:hidden;">
+                                <div style="width:{{ pct }}%;height:100%;background:{{ color }};border-radius:3px;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding:14px 18px;text-align:center;">{{ "%.0f"|format(s.skill_score) }}%</td>
+                    <td style="padding:14px 18px;text-align:center;">{{ "%.0f"|format(s.exp_score) }}%</td>
+                    <td style="padding:14px 18px;text-align:center;">{{ "%.0f"|format(s.edu_score) }}%</td>
+                    <td style="padding:14px 18px;text-align:center;">
+                        {% if c.extracted_skills %}
+                        <form method="POST" action="{{ url_for('create_interview') }}" style="display:inline;">
+                            <input type="hidden" name="candidate_id" value="{{ c.id }}">
+                            <input type="hidden" name="job_id" value="{{ job.id }}">
+                            <input type="hidden" name="num_questions" value="5">
+                            <input type="hidden" name="duration" value="30">
+                            <button type="submit" class="btn btn-sm" style="background:var(--primary-color);color:white;font-size:0.8rem;padding:6px 12px;">
+                                📩 Invite
+                            </button>
+                        </form>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-size:0.8rem;">No resume</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p style="margin-top:12px;color:var(--text-muted);font-size:0.85rem;">
+        🟢 70%+ Good Match &nbsp;|&nbsp; 🟡 40-70% Average &nbsp;|&nbsp; 🔴 Below 40% Low Match
+    </p>
+
+    {% else %}
+    <div style="text-align:center;padding:60px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border-color);">
+        <p style="font-size:2rem;">👥</p>
+        <p style="color:var(--text-muted);">No candidates have uploaded resumes yet.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
