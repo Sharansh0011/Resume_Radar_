@@ -74,8 +74,7 @@
                 <td>{{ job.required_skills or 'N/A' }}</td>
                 <td>{{ job.min_experience }} yrs</td>
                 <td>{{ job.created_at.strftime('%Y-%m-%d') if job.created_at else 'N/A' }}</td>
-                <td style="display:flex;gap:6px;align-items:center;">
-                    <a href="{{ url_for('job_candidates', job_id=job.id) }}" class="btn btn-sm" style="background:var(--primary-color);color:white;">👥 Candidates</a>
+                <td>
                     <form action="{{ url_for('delete_job', job_id=job.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete job &quot;{{ job.title }}&quot; and all its interviews?')">
                         <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
                     </form>
@@ -88,22 +87,37 @@
     <div class="section">
         <h2>🎤 Assign Interview</h2>
         <form action="{{ url_for('create_interview') }}" method="POST" class="form-inline">
-            <select name="candidate_id" required>
-                <option value="">Select Candidate</option>
-                {% for c in candidates %}
-                <option value="{{ c.id }}">{{ c.full_name }} ({{ c.email }})</option>
-                {% endfor %}
-            </select>
-            <select name="job_id" required>
-                <option value="">Select Job</option>
+            <select name="job_id" required id="jobSelect" onchange="filterCandidates(this.value)">
+                <option value="">Select Job First</option>
                 {% for j in jobs %}
                 <option value="{{ j.id }}">{{ j.title }}</option>
                 {% endfor %}
+            </select>
+            <select name="candidate_id" required id="candidateSelect">
+                <option value="">Select Job First</option>
             </select>
             <input type="number" name="duration" value="30" min="10" max="120" placeholder="Duration (min)">
             <button type="submit" class="btn btn-sm">Assign Interview</button>
         </form>
     </div>
+
+    <script>
+    const jobCandidatesMap = {{ job_candidates_map | tojson }};
+    function filterCandidates(jobId) {
+        const sel = document.getElementById('candidateSelect');
+        sel.innerHTML = '<option value="">Select Candidate</option>';
+        if (!jobId || !jobCandidatesMap[jobId] || jobCandidatesMap[jobId].length === 0) {
+            sel.innerHTML = '<option value="">No matching candidates</option>';
+            return;
+        }
+        jobCandidatesMap[jobId].forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name + ' (' + c.score + '% match)';
+            sel.appendChild(opt);
+        });
+    }
+    </script>
 
     <div class="section">
         <h2>📊 Interviews</h2>
