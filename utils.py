@@ -469,14 +469,144 @@ def _calculate_match_score_keyword(candidate_skills_json, candidate_exp, candida
         'weight_education': round(w_edu, 1)
     }
 
-def calculate_match_score(candidate_skills_json, candidate_exp, candidate_edu, job_skills_text, min_exp,
-                          weight_skills=50, weight_experience=30, weight_education=20):
-    """Calculate match score using fast keyword matching.
-    Uses keyword method for speed since this runs on every dashboard page load.
-    AI is reserved for one-time actions (skill extraction, question gen, answer scoring).
-    """
+def _calculate_match_score_ai(candidate_skills_json, candidate_exp, candidate_edu, job_skills_text, min_exp,
+                               weight_skills=50, weight_experience=30, weight_education=20):
+    """AI-Powered: Semantic skill matching using Gemini for intelligent comparison."""
+    total_weight = weight_skills + weight_experience + weight_education
+    if total_weight == 0:
+        total_weight = 100
+
+    w_skills = (weight_skills / total_weight) * 100
+    w_exp = (weight_experience / total_weight) * 100
+    w_edu = (weight_education / total_weight) * 100
+
+    # Parse candidate skills
+    candidate_skills_list = []
+    if candidate_skills_json:
+        try:
+            if isinstance(candidate_skills_json, str):
+                candidate_skills_list = json.loads(candidate_skills_json)
+            elif isinstance(candidate_skills_json, list):
+                candidate_skills_list = candidate_skills_json
+        except:
+            candidate_skills_list = []
+
+    job_skills_list = []
+    if job_skills_text:
+        job_skills_list = [s.strip().lower() for s in job_skills_text.split(',') if s.strip()]
+
+    if not job_skills_list or not candidate_skills_list:
+        # No skills to compare — fall back to keyword method
+        return _calculate_match_score_keyword(candidate_skills_json, candidate_exp, candidate_edu,
+                                               job_skills_text, min_exp, weight_skills, weight_experience, weight_education)
+
+    # AI semantic matching
+    prompt = f"""You are an expert HR skill matcher. Compare the candidate's skills with the job required skills and find SEMANTIC matches.
+
+Candidate Skills: {json.dumps(candidate_skills_list)}
+Job Required Skills: {json.dumps(job_skills_list)}
+
+For EACH job skill, check if the candidate has that skill OR an equivalent/related skill.
+Examples of semantic matches:
+- "nodejs" matches "node.js" (same technology)
+- "sklearn" matches "scikit-learn" (same library)
+- "ML" matches "machine learning" (abbreviation)
+- "frontend development" matches "react, html, css" (candidate has the specific frontend skills)
+- "web development" matches "django, flask, react" (candidate knows web frameworks)
+- "data analysis" matches "pandas, numpy, matplotlib" (candidate has data analysis tools)
+
+Return ONLY a JSON object:
+{{
+    "matched_skills": ["skill1", "skill2"],
+    "missing_skills": ["skill3"],
+    "skill_score": 75.0
+}}
+
+Rules:
+- matched_skills: job skills that the candidate HAS (exact or semantically equivalent)
+- missing_skills: job skills the candidate does NOT have
+- skill_score: percentage of job skills matched (0-100), be fair and accurate
+- Consider abbreviations, alternate names, and related technologies as matches
+- Return ONLY the JSON object"""
+
+    response = call_gemini(prompt)
+    if response:
+        result = parse_gemini_json(response)
+        if result and isinstance(result, dict) and 'skill_score' in result:
+            try:
+                skill_score = float(result.get('skill_score', 0))
+                skill_score = max(0, min(100, skill_score))
+
+                matched_skills = result.get('matched_skills', [])
+                if not isinstance(matched_skills, list):
+                    matched_skills = []
+                matched_skills = [str(s) for s in matched_skills]
+
+                missing_skills = result.get('missing_skills', [])
+                if not isinstance(missing_skills, list):
+                    missing_skills = []
+                missing_skills = [str(s) for s in missing_skills]
+
+                # Calculate exp and edu scores (same deterministic logic)
+                try:
+                    cand_exp = float(candidate_exp) if candidate_exp else 0
+                except:
+                    cand_exp = 0
+                try:
+                    min_e = float(min_exp) if min_exp else 0
+                except:
+                    min_e = 0
+
+                if min_e == 0:
+                    exp_score = 100
+                elif cand_exp >= min_e:
+                    exp_score = 100
+                else:
+                    exp_score = (cand_exp / min_e) * 100
+
+                edu_score = 100
+                if candidate_edu:
+                    edu_lower = str(candidate_edu).lower()
+                    if 'phd' in edu_lower or 'doctorate' in edu_lower:
+                        edu_score = 100
+                    elif 'master' in edu_lower or 'm.tech' in edu_lower or 'mba' in edu_lower:
+                        edu_score = 95
+                    elif 'b.tech' in edu_lower or 'bachelor' in edu_lower or 'be' in edu_lower:
+                        edu_score = 90
+                    elif 'diploma' in edu_lower:
+                        edu_score = 70
+                else:
+                    edu_score = 50
+
+                total_score = (skill_score * w_skills / 100) + (exp_score * w_exp / 100) + (edu_score * w_edu / 100)
+
+                print(f"[Resume Radar] AI semantic skill match: {skill_score}% ({len(matched_skills)} matched, {len(missing_skills)} missing)")
+                return {
+                    'total_score': round(total_score, 1),
+                    'skill_score': round(skill_score, 1),
+                    'exp_score': round(exp_score, 1),
+                    'edu_score': round(edu_score, 1),
+                    'matched_skills': sorted(matched_skills),
+                    'missing_skills': sorted(missing_skills),
+                    'weight_skills': round(w_skills, 1),
+                    'weight_experience': round(w_exp, 1),
+                    'weight_education': round(w_edu, 1)
+                }
+            except (ValueError, TypeError) as e:
+                print(f"[Resume Radar] AI skill match parse error: {e}")
+
+    # Fallback to keyword matching
+    print("[Resume Radar] Using keyword fallback for skill matching")
     return _calculate_match_score_keyword(candidate_skills_json, candidate_exp, candidate_edu,
                                            job_skills_text, min_exp, weight_skills, weight_experience, weight_education)
+
+def calculate_match_score(candidate_skills_json, candidate_exp, candidate_edu, job_skills_text, min_exp,
+                          weight_skills=50, weight_experience=30, weight_education=20):
+    """AI-Powered: Semantic skill matching using Gemini AI.
+    Uses AI for intelligent meaning-based comparison, with keyword fallback.
+    """
+    return _calculate_match_score_ai(candidate_skills_json, candidate_exp, candidate_edu,
+                                      job_skills_text, min_exp, weight_skills, weight_experience, weight_education)
 
 # ======================= INTERVIEW QUESTIONS =======================
 
