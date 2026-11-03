@@ -183,10 +183,19 @@ def register():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
         full_name = request.form.get('full_name')
         role = request.form.get('role')
         phone = request.form.get('phone')
         company_name = request.form.get('company_name')
+
+        if not password or len(password) < 6:
+            flash('Password must be at least 6 characters!', 'danger')
+            return redirect(url_for('register'))
+
+        if password != confirm_password:
+            flash('Passwords do not match!', 'danger')
+            return redirect(url_for('register'))
 
         if User.query.filter_by(email=email).first():
             flash('Email already registered!', 'danger')

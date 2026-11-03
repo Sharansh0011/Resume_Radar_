@@ -114,5 +114,64 @@ button:hover {
     }
     roleSelect.addEventListener('change', toggleCompany);
     toggleCompany();
+
+    // Confirm password validation
+    const regForm = document.querySelector('form');
+    const password = document.getElementById('regPassword');
+    const confirmPassword = document.getElementById('regConfirmPassword');
+
+    function showError(input, msg) {
+        let err = input.parentElement.parentElement.querySelector('.field-error');
+        if (!err) {
+            err = document.createElement('div');
+            err.className = 'field-error';
+            err.style.cssText = 'color:#dc3545;font-size:13px;margin-top:4px;';
+            input.parentElement.parentElement.appendChild(err);
+        }
+        err.textContent = msg;
+        input.style.borderColor = '#dc3545';
+    }
+
+    function clearError(input) {
+        const err = input.parentElement.parentElement.querySelector('.field-error');
+        if (err) err.remove();
+        input.style.borderColor = '';
+    }
+
+    confirmPassword.addEventListener('input', function() {
+        if (this.value && this.value !== password.value) {
+            showError(this, 'Passwords do not match!');
+        } else {
+            clearError(this);
+        }
+    });
+
+    password.addEventListener('input', function() {
+        if (this.value.length > 0 && this.value.length < 6) {
+            showError(this, 'Password must be at least 6 characters');
+        } else {
+            clearError(this);
+        }
+        if (confirmPassword.value && confirmPassword.value !== this.value) {
+            showError(confirmPassword, 'Passwords do not match!');
+        } else {
+            clearError(confirmPassword);
+        }
+    });
+
+    regForm.addEventListener('submit', function(e) {
+        if (password.value.length < 6) {
+            e.preventDefault();
+            showError(password, 'Password must be at least 6 characters');
+            password.focus();
+            return;
+        }
+        if (password.value !== confirmPassword.value) {
+            e.preventDefault();
+            showError(confirmPassword, 'Passwords do not match!');
+            confirmPassword.focus();
+            return;
+        }
+    });
 </script>
 {% endblock %}

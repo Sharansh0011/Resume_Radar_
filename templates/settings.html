@@ -63,6 +63,7 @@
                 <span>Dark Mode</span>
             </label>
         </div>
+        {% if current_user.role == 'hr' %}
         <div class="form-group">
             <label>Skill Weight (%)</label>
             <input type="number" class="weight-input" name="weight_skills" value="{{ settings.weight_skills }}" min="0" max="100">
@@ -77,6 +78,7 @@
         </div>
         <div class="weight-bar"><div class="weight-bar-fill" id="weightBarFill"></div></div>
         <div class="weight-status" id="weightStatus"></div>
+        {% endif %}
         <button type="submit" class="btn">Save Settings</button>
     </form>
 
@@ -103,7 +105,9 @@
         });
     }
 </script>
+{% if current_user.role == 'hr' %}
 <script>
     initWeightValidation('.weight-input', '#weightBarFill', '#weightStatus');
 </script>
+{% endif %}
 {% endblock %}

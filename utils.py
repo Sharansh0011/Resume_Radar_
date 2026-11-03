@@ -239,11 +239,129 @@ Rules:
     print("[Resume Radar] Using keyword fallback for skill extraction")
     return _extract_skills_keyword(text)
 
+# ======================= SKILL NORMALIZATION =======================
+
+# Aliases map: maps alternate names to a canonical form for matching
+SKILL_ALIASES = {
+    # JavaScript variants
+    'js': 'javascript', 'es6': 'javascript', 'es2015': 'javascript', 'ecmascript': 'javascript',
+    # TypeScript
+    'ts': 'typescript',
+    # Python variants
+    'py': 'python', 'python3': 'python', 'python2': 'python',
+    # Node.js variants
+    'nodejs': 'node.js', 'node': 'node.js',
+    # React variants
+    'react.js': 'react', 'reactjs': 'react',
+    # Vue variants
+    'vue.js': 'vue', 'vuejs': 'vue',
+    # Angular variants
+    'angular.js': 'angular', 'angularjs': 'angular',
+    # Next.js variants
+    'nextjs': 'next.js',
+    # Nuxt.js variants
+    'nuxtjs': 'nuxt.js',
+    # Express variants
+    'express.js': 'express', 'expressjs': 'express',
+    # Scikit-learn variants
+    'sklearn': 'scikit-learn', 'scikit learn': 'scikit-learn', 'scikitlearn': 'scikit-learn',
+    # PostgreSQL variants
+    'postgres': 'postgresql', 'psql': 'postgresql',
+    # MongoDB variants
+    'mongo': 'mongodb',
+    # Kubernetes variants
+    'k8s': 'kubernetes',
+    # Machine Learning variants
+    'ml': 'machine learning',
+    # Deep Learning variants
+    'dl': 'deep learning',
+    # Artificial Intelligence variants
+    'ai': 'artificial intelligence',
+    # NLP variants
+    'natural language processing': 'nlp',
+    # CSS variants
+    'css3': 'css',
+    # HTML variants
+    'html5': 'html',
+    # Spring Boot variants
+    'springboot': 'spring boot',
+    # C# variants
+    'csharp': 'c#', 'c sharp': 'c#',
+    # C++ variants
+    'cpp': 'c++', 'cplusplus': 'c++',
+    # REST API variants
+    'restful': 'rest api', 'restful api': 'rest api', 'rest': 'rest api',
+    # GraphQL variants
+    'graph ql': 'graphql',
+    # CI/CD variants
+    'ci cd': 'ci/cd', 'cicd': 'ci/cd',
+    # AWS variants
+    'amazon web services': 'aws',
+    # GCP variants
+    'google cloud platform': 'gcp', 'google cloud': 'gcp',
+    # Azure variants
+    'microsoft azure': 'azure',
+    # TailwindCSS variants
+    'tailwindcss': 'tailwind', 'tailwind css': 'tailwind',
+    # Material UI variants
+    'materialui': 'material ui', 'mui': 'material ui',
+    # jQuery variants
+    'j query': 'jquery',
+    # GitHub variants
+    'git hub': 'github',
+    # GitLab variants
+    'git lab': 'gitlab',
+    # Power BI variants
+    'powerbi': 'power bi',
+    # React Native variants
+    'react-native': 'react native', 'reactnative': 'react native',
+}
+
+def _normalize_skill(skill):
+    """Normalize a skill name to its canonical form."""
+    s = skill.strip().lower()
+    # Remove extra whitespace
+    s = re.sub(r'\s+', ' ', s)
+    # Remove trailing/leading dots, hyphens
+    s = s.strip('.-_ ')
+    # Check alias map
+    if s in SKILL_ALIASES:
+        return SKILL_ALIASES[s]
+    return s
+
+def _normalize_skill_set(skills):
+    """Normalize a set of skills, returning both normalized and original forms."""
+    normalized = set()
+    norm_to_original = {}
+    for skill in skills:
+        norm = _normalize_skill(skill)
+        normalized.add(norm)
+        norm_to_original[norm] = skill
+    return normalized, norm_to_original
+
+def _fuzzy_skill_match(candidate_skill, job_skill):
+    """Check if two skills match using fuzzy logic (substring, containment)."""
+    c = candidate_skill.lower().strip()
+    j = job_skill.lower().strip()
+    # Exact match
+    if c == j:
+        return True
+    # One contains the other (for multi-word skills)
+    if len(c) >= 3 and len(j) >= 3:
+        if c in j or j in c:
+            return True
+    # Handle hyphen/space/dot variants: "node.js" vs "node js" vs "nodejs"
+    c_clean = re.sub(r'[.\-_\s]', '', c)
+    j_clean = re.sub(r'[.\-_\s]', '', j)
+    if c_clean == j_clean:
+        return True
+    return False
+
 # ======================= SCORING ENGINE =======================
 
 def _calculate_match_score_keyword(candidate_skills_json, candidate_exp, candidate_edu, job_skills_text, min_exp,
                                     weight_skills=50, weight_experience=30, weight_education=20):
-    """Fallback: Calculate match score using keyword matching (original method)."""
+    """Calculate match score using normalized keyword matching with alias support."""
     total_weight = weight_skills + weight_experience + weight_education
     if total_weight == 0:
         total_weight = 100
@@ -252,26 +370,59 @@ def _calculate_match_score_keyword(candidate_skills_json, candidate_exp, candida
     w_exp = (weight_experience / total_weight) * 100
     w_edu = (weight_education / total_weight) * 100
 
-    candidate_skills = set()
+    candidate_skills_raw = set()
     if candidate_skills_json:
         try:
             if isinstance(candidate_skills_json, str):
-                candidate_skills = set(json.loads(candidate_skills_json))
+                candidate_skills_raw = set(json.loads(candidate_skills_json))
             elif isinstance(candidate_skills_json, list):
-                candidate_skills = set(candidate_skills_json)
+                candidate_skills_raw = set(candidate_skills_json)
         except:
-            candidate_skills = set()
+            candidate_skills_raw = set()
 
-    job_skills = set()
+    job_skills_raw = set()
     if job_skills_text:
-        job_skills = set([s.strip().lower() for s in job_skills_text.split(',') if s.strip()])
+        job_skills_raw = set([s.strip().lower() for s in job_skills_text.split(',') if s.strip()])
 
-    matched_skills = candidate_skills.intersection(job_skills)
-    missing_skills = job_skills - candidate_skills
+    # Normalize both skill sets using aliases
+    candidate_normalized, candidate_norm_map = _normalize_skill_set(candidate_skills_raw)
+    job_normalized, job_norm_map = _normalize_skill_set(job_skills_raw)
+
+    # Phase 1: Exact match on normalized skills
+    matched_normalized = candidate_normalized.intersection(job_normalized)
+    remaining_job = job_normalized - matched_normalized
+
+    # Phase 2: Fuzzy match on remaining job skills
+    fuzzy_matched = set()
+    for j_skill in remaining_job:
+        for c_skill in candidate_normalized:
+            if _fuzzy_skill_match(c_skill, j_skill):
+                fuzzy_matched.add(j_skill)
+                break
+
+    all_matched_normalized = matched_normalized | fuzzy_matched
+    missing_normalized = job_normalized - all_matched_normalized
+
+    # Map back to original skill names for display
+    matched_skills = set()
+    for norm in all_matched_normalized:
+        if norm in job_norm_map:
+            matched_skills.add(job_norm_map[norm])
+        elif norm in candidate_norm_map:
+            matched_skills.add(candidate_norm_map[norm])
+        else:
+            matched_skills.add(norm)
+
+    missing_skills = set()
+    for norm in missing_normalized:
+        if norm in job_norm_map:
+            missing_skills.add(job_norm_map[norm])
+        else:
+            missing_skills.add(norm)
 
     skill_score = 0
-    if job_skills:
-        skill_score = (len(matched_skills) / len(job_skills)) * 100
+    if job_normalized:
+        skill_score = (len(all_matched_normalized) / len(job_normalized)) * 100
 
     try:
         candidate_exp = float(candidate_exp) if candidate_exp else 0
