@@ -465,6 +465,7 @@ def candidate_dashboard():
 
     if current_user.extracted_skills:
         for job in jobs:
+            print(f"[DEBUG] Matching candidate skills vs job '{job.title}', job_skills='{job.required_skills}'")
             score_data = calculate_match_score(
                 current_user.extracted_skills,
                 current_user.experience_years or 0,
@@ -475,6 +476,7 @@ def candidate_dashboard():
                 weight_experience=settings.weight_experience,
                 weight_education=settings.weight_education
             )
+            print(f"[DEBUG] Result: skill_score={score_data['skill_score']}, matched={score_data.get('matched_skills', [])}")
             matches.append({'job': job, 'score': score_data})
 
     interviews = Interview.query.filter_by(candidate_id=current_user.id).all()
@@ -801,6 +803,48 @@ def api_theme():
     return jsonify({'dark_mode': False})
 
 # ======================= API ROUTES =======================
+
+@app.route('/api/debug_match')
+@login_required
+def api_debug_match():
+    """Debug: Show skill matching details for current candidate vs all jobs."""
+    if current_user.role != 'candidate':
+        return jsonify({'error': 'Only candidates can access this'}), 403
+
+    jobs = JobDescription.query.all()
+    debug_data = {
+        'candidate': {
+            'name': current_user.full_name,
+            'extracted_skills': current_user.extracted_skills,
+            'experience_years': current_user.experience_years,
+            'education': current_user.education,
+        },
+        'jobs': [],
+        'gemini_available': False,
+    }
+
+    # Check if Gemini is working
+    try:
+        from utils import GEMINI_AVAILABLE, GEMINI_API_KEY
+        debug_data['gemini_available'] = GEMINI_AVAILABLE and bool(GEMINI_API_KEY)
+    except:
+        pass
+
+    for job in jobs:
+        score_data = calculate_match_score(
+            current_user.extracted_skills or '',
+            current_user.experience_years or 0,
+            current_user.education or '',
+            job.required_skills or '',
+            job.min_experience or 0
+        )
+        debug_data['jobs'].append({
+            'title': job.title,
+            'required_skills_raw': job.required_skills,
+            'score': score_data
+        })
+
+    return jsonify(debug_data)
 
 @app.route('/api/candidate_score/<int:candidate_id>/<int:job_id>')
 @login_required
