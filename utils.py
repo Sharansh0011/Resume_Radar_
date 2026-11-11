@@ -706,7 +706,7 @@ QUESTION_BANK = [
 ]
 
 def _generate_questions_bank(job_skills_text, candidate_skills_text, num_questions=5):
-    """Fallback: Generate RELEVANT questions from bank — filtered by topic, randomized each time."""
+    """Fallback: Generate RELEVANT and RANDOM questions from bank each time."""
     job_skills = set()
     if job_skills_text:
         job_skills = set([s.strip().lower() for s in job_skills_text.split(',') if s.strip()])
@@ -718,7 +718,8 @@ def _generate_questions_bank(job_skills_text, candidate_skills_text, num_questio
     all_skills = job_skills | candidate_skills
 
     # Score each question by relevance to the given skills
-    scored_questions = []
+    relevant = []
+    irrelevant = []
     for q in QUESTION_BANK:
         score = 0
         keywords = q.get('expected_keywords', [])
@@ -727,47 +728,29 @@ def _generate_questions_bank(job_skills_text, candidate_skills_text, num_questio
         for kw in keywords:
             kw_lower = kw.lower()
             if kw_lower in job_skills:
-                score += 3  # Strong match with job skills
+                score += 3
             if kw_lower in candidate_skills:
                 score += 1
 
-        # Bonus: check if question text itself mentions any of the skills
         for skill in all_skills:
             if skill in q_text_lower:
                 score += 2
 
-        scored_questions.append((score, q))
+        if score > 0:
+            relevant.append(q)
+        elif q.get('category') in ('Behavioral', 'Problem Solving'):
+            irrelevant.append(q)  # Generic questions as backup
 
-    # Filter: only keep questions with score > 0 (relevant to the topic)
-    relevant_questions = [(s, q) for s, q in scored_questions if s > 0]
+    # Shuffle relevant questions randomly — this ensures different questions each time
+    random.shuffle(relevant)
 
-    # If not enough relevant questions, include generic ones (behavioral, problem solving)
-    if len(relevant_questions) < num_questions:
-        generic_categories = {'Behavioral', 'Problem Solving'}
-        for s, q in scored_questions:
-            if q.get('category') in generic_categories and (s, q) not in relevant_questions:
-                relevant_questions.append((s, q))
-            if len(relevant_questions) >= num_questions * 2:
-                break
-
-    # Still not enough? Add remaining questions
-    if len(relevant_questions) < num_questions:
-        for s, q in scored_questions:
-            if (s, q) not in relevant_questions:
-                relevant_questions.append((s, q))
-            if len(relevant_questions) >= num_questions * 2:
-                break
-
-    # Sort by relevance score (highest first)
-    relevant_questions.sort(key=lambda x: x[0], reverse=True)
-
-    # Select with difficulty balance + randomization
+    # Pick with difficulty balance
     selected = []
     difficulties = {'Easy': 0, 'Medium': 0, 'Hard': 0}
     target_diff = {'Easy': 2, 'Medium': 2, 'Hard': 1}
 
-    # First pass: pick top-scored questions with difficulty balance
-    for score, q in relevant_questions:
+    # First pass: pick from relevant with difficulty balance
+    for q in relevant:
         if len(selected) >= num_questions:
             break
         diff = q.get('difficulty', 'Medium')
@@ -775,14 +758,22 @@ def _generate_questions_bank(job_skills_text, candidate_skills_text, num_questio
             selected.append(q)
             difficulties[diff] = difficulties.get(diff, 0) + 1
 
-    # Second pass: fill remaining from relevant questions only
-    for score, q in relevant_questions:
+    # Second pass: fill remaining from relevant (any difficulty)
+    for q in relevant:
         if len(selected) >= num_questions:
             break
         if q not in selected:
             selected.append(q)
 
-    # Shuffle for randomness — so each time order is different
+    # Still need more? Add generic behavioral/problem-solving
+    if len(selected) < num_questions:
+        random.shuffle(irrelevant)
+        for q in irrelevant:
+            if len(selected) >= num_questions:
+                break
+            selected.append(q)
+
+    # Final shuffle so order is also random
     random.shuffle(selected)
     return selected[:num_questions]
 
