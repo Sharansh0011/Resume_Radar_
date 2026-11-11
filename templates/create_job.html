@@ -64,6 +64,8 @@ button[type="submit"]:hover {
             <div class="tags-container" id="skillsContainer">
                 <input type="text" class="tag-input" placeholder="Type a skill and press Enter...">
             </div>
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">Or paste all skills at once below:</small>
+            <input type="text" id="skillsPaste" placeholder="e.g. python, flask, javascript, react, sql" style="margin-top: 5px;">
         </div>
         <div class="form-group">
             <label>Minimum Experience (years)</label>
@@ -77,5 +79,33 @@ button[type="submit"]:hover {
 {% block scripts %}
 <script>
     initTagsInput('#skillsContainer', '#skillsHidden');
+
+    // Paste shortcut: paste comma-separated skills and auto-add as tags
+    const pasteInput = document.getElementById('skillsPaste');
+    if (pasteInput) {
+        pasteInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const skills = this.value.split(',').map(s => s.trim()).filter(Boolean);
+                skills.forEach(s => {
+                    const container = document.querySelector('#skillsContainer');
+                    const hidden = document.querySelector('#skillsHidden');
+                    const tagInput = container.querySelector('.tag-input');
+                    // Trigger addTag by simulating
+                    tagInput.value = s;
+                    tagInput.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+                });
+                this.value = '';
+            }
+        });
+
+        // Also handle on form submit — directly set hidden if tags empty
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const hidden = document.getElementById('skillsHidden');
+            if (!hidden.value && pasteInput.value) {
+                hidden.value = pasteInput.value;
+            }
+        });
+    }
 </script>
 {% endblock %}
