@@ -706,7 +706,7 @@ QUESTION_BANK = [
 ]
 
 def _generate_questions_bank(job_skills_text, candidate_skills_text, num_questions=5):
-    """Fallback: Generate questions from fixed bank (original method)."""
+    """Fallback: Generate RELEVANT questions from bank — filtered by topic, randomized each time."""
     job_skills = set()
     if job_skills_text:
         job_skills = set([s.strip().lower() for s in job_skills_text.split(',') if s.strip()])
@@ -715,45 +715,74 @@ def _generate_questions_bank(job_skills_text, candidate_skills_text, num_questio
     if candidate_skills_text:
         candidate_skills = set([s.strip().lower() for s in candidate_skills_text.split(',') if s.strip()])
 
+    all_skills = job_skills | candidate_skills
+
+    # Score each question by relevance to the given skills
     scored_questions = []
     for q in QUESTION_BANK:
         score = 0
         keywords = q.get('expected_keywords', [])
+        q_text_lower = q.get('question', '').lower()
+
         for kw in keywords:
-            if kw.lower() in job_skills:
-                score += 2
-            if kw.lower() in candidate_skills:
+            kw_lower = kw.lower()
+            if kw_lower in job_skills:
+                score += 3  # Strong match with job skills
+            if kw_lower in candidate_skills:
                 score += 1
+
+        # Bonus: check if question text itself mentions any of the skills
+        for skill in all_skills:
+            if skill in q_text_lower:
+                score += 2
+
         scored_questions.append((score, q))
 
-    scored_questions.sort(key=lambda x: x[0], reverse=True)
+    # Filter: only keep questions with score > 0 (relevant to the topic)
+    relevant_questions = [(s, q) for s, q in scored_questions if s > 0]
 
+    # If not enough relevant questions, include generic ones (behavioral, problem solving)
+    if len(relevant_questions) < num_questions:
+        generic_categories = {'Behavioral', 'Problem Solving'}
+        for s, q in scored_questions:
+            if q.get('category') in generic_categories and (s, q) not in relevant_questions:
+                relevant_questions.append((s, q))
+            if len(relevant_questions) >= num_questions * 2:
+                break
+
+    # Still not enough? Add remaining questions
+    if len(relevant_questions) < num_questions:
+        for s, q in scored_questions:
+            if (s, q) not in relevant_questions:
+                relevant_questions.append((s, q))
+            if len(relevant_questions) >= num_questions * 2:
+                break
+
+    # Sort by relevance score (highest first)
+    relevant_questions.sort(key=lambda x: x[0], reverse=True)
+
+    # Select with difficulty balance + randomization
     selected = []
-    categories = set()
     difficulties = {'Easy': 0, 'Medium': 0, 'Hard': 0}
     target_diff = {'Easy': 2, 'Medium': 2, 'Hard': 1}
 
-    for score, q in scored_questions:
+    # First pass: pick top-scored questions with difficulty balance
+    for score, q in relevant_questions:
         if len(selected) >= num_questions:
             break
         diff = q.get('difficulty', 'Medium')
-        if difficulties[diff] < target_diff.get(diff, 1):
+        if difficulties.get(diff, 0) < target_diff.get(diff, 1):
             selected.append(q)
-            categories.add(q.get('category', 'Technical'))
-            difficulties[diff] += 1
+            difficulties[diff] = difficulties.get(diff, 0) + 1
 
-    for score, q in scored_questions:
+    # Second pass: fill remaining from relevant questions only
+    for score, q in relevant_questions:
         if len(selected) >= num_questions:
             break
         if q not in selected:
             selected.append(q)
-            categories.add(q.get('category', 'Technical'))
 
-    while len(selected) < num_questions:
-        q = random.choice([x[1] for x in scored_questions if x[1] not in selected])
-        if q not in selected:
-            selected.append(q)
-
+    # Shuffle for randomness — so each time order is different
     random.shuffle(selected)
     return selected[:num_questions]
 
@@ -770,12 +799,17 @@ def generate_interview_questions(job_skills_text, candidate_skills_text, num_que
         medium = num_questions // 3
         hard = num_questions - easy - medium
 
+    # Generate a random seed to ensure different questions each time
+    import time
+    random_seed = int(time.time()) % 1000
+
     prompt = f"""You are an expert technical interviewer. Generate exactly {num_questions} UNIQUE interview questions.
 
 Job Required Skills: {job_skills_text}
 Candidate's Skills: {candidate_skills_text}
 
 Difficulty Mix: {easy} Easy, {medium} Medium, {hard} Hard
+Random Seed: {random_seed} (use this to vary your question selection)
 
 Return ONLY a JSON array with exactly {num_questions} objects. Each question must have this format:
 [
@@ -790,12 +824,15 @@ Return ONLY a JSON array with exactly {num_questions} objects. Each question mus
 
 CRITICAL RULES:
 - Generate EXACTLY {num_questions} questions, no more, no less
+- ONLY ask questions directly related to the Job Required Skills listed above
+- Do NOT ask questions about skills NOT in the job requirements (e.g., if job is Python Developer, do NOT ask about HTML/CSS/JavaScript unless those are in the required skills)
 - Every question MUST be completely DIFFERENT from each other — NO duplicate or similar questions
-- Each question should cover a DIFFERENT topic or skill
+- Each question should cover a DIFFERENT skill from the job requirements
 - Categories to mix: "Technical", "Behavioral", "Problem Solving", "System Design"
 - expected_keywords: 5-8 keywords that a good answer should contain (lowercase)
 - max_score is always 10
-- Make questions specific to the skills mentioned, not generic
+- Make questions SPECIFIC to the skills mentioned, not generic
+- Generate DIFFERENT questions each time (use the random seed to vary your selection)
 - Return ONLY the JSON array, nothing else"""
 
     response = call_gemini(prompt)
