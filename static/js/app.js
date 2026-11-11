@@ -89,10 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('form').forEach(form => {
         form.addEventListener('submit', (e) => {
+            // Wait a tick — if preventDefault was called by another listener, don't show spinner
             const btn = form.querySelector('button[type="submit"], .btn-submit');
             if (btn && !btn.classList.contains('btn-loading')) {
-                btn.classList.add('btn-loading');
-                btn.dataset.originalText = btn.textContent;
+                setTimeout(() => {
+                    if (!e.defaultPrevented) {
+                        btn.classList.add('btn-loading');
+                        btn.dataset.originalText = btn.textContent;
+                    }
+                }, 0);
             }
         });
     });
